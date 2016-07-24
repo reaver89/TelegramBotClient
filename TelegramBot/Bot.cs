@@ -193,7 +193,7 @@ namespace TelegramBot
                 var usage = @"Usage:
 /photo    - send a photo
 /weather  - show wheather
-/weather  city name - show wheather in specific city
+/weather city name  - show wheather in specific city
 ";
 
                 await BotClient.SendTextMessageAsync(message.Chat.Id, usage,
