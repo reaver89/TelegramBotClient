@@ -1,16 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Args;
-using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InlineQueryResults;
 using Telegram.Bot.Types.InputMessageContents;
 using Telegram.Bot.Types.ReplyMarkups;
+using TelegramBot.Services;
 
 namespace TelegramBot
 {
@@ -18,7 +17,8 @@ namespace TelegramBot
     {
         private const string ApiKey = "221390342:AAHEbJxB1PoUUxdnkPKb5SjUxIKj-Cffib8";
 
-        private static readonly TelegramBotClient BotClient = new TelegramBotClient(ApiKey);
+        private readonly TelegramBotClient BotClient = new TelegramBotClient(ApiKey);
+        public PhotoService PhotoService { get; set; }
 
         public class WeatherIcons
         {
@@ -96,8 +96,7 @@ namespace TelegramBot
             BotClient.OnInlineQuery += BotClientOnInlineQueryReceived;
             BotClient.OnInlineResultChosen += BotClientOnChosenInlineResultReceived;
             BotClient.OnReceiveError += BotClientOnReceiveError;
-
-
+            PhotoService = new PhotoService(BotClient);
         }
 
         public void StartReceiving()
@@ -115,12 +114,12 @@ namespace TelegramBot
             Debugger.Break();
         }
 
-        private static void BotClientOnChosenInlineResultReceived(object sender, ChosenInlineResultEventArgs chosenInlineResultEventArgs)
+        private void BotClientOnChosenInlineResultReceived(object sender, ChosenInlineResultEventArgs chosenInlineResultEventArgs)
         {
 
         }
 
-        private static async void BotClientOnInlineQueryReceived(object sender, InlineQueryEventArgs inlineQueryEventArgs)
+        private async void BotClientOnInlineQueryReceived(object sender, InlineQueryEventArgs inlineQueryEventArgs)
         {
             InlineQueryResult[] results = {
                 new InlineQueryResultLocation
@@ -153,7 +152,7 @@ namespace TelegramBot
             await BotClient.AnswerInlineQueryAsync(inlineQueryEventArgs.InlineQuery.Id, results, isPersonal: true, cacheTime: 0);
         }
 
-        private static async void BotClientOnMessageReceived(object sender, MessageEventArgs messageEventArgs)
+        private async void BotClientOnMessageReceived(object sender, MessageEventArgs messageEventArgs)
         {
             var message = messageEventArgs.Message;
 
@@ -163,24 +162,12 @@ namespace TelegramBot
 
             if (text.StartsWith("/photo")) // send a photo
             {
-                await BotClient.SendChatActionAsync(message.Chat.Id, ChatAction.UploadPhoto);
-
-                var url = "http://localhost//botwebapi/api/photo";
-
-                using (var client = new WebClient())
-                {
-                    var data = await client.DownloadDataTaskAsync(new Uri(url));
-
-                    var fts = new FileToSend("randomFile.jpg", new MemoryStream(data));
-                    await BotClient.SendPhotoAsync(message.Chat.Id, fts, "Nice Picture");
-                }
-
-
+                PhotoService.SendRandomPhoto(message.Chat.Id);
             }
             else if (text.StartsWith("/weather")) // request location or contact
             {
 
-                var r = new Regex(@"(\/weather)\s([a-zA-Z]+)");
+                var r = new Regex(@"(\/weather)\s([a-zA-Z-a-zA-Z]+)?");
 
                 var tokens = r.Match(text).Groups;
                 var url = "http://localhost//botwebapi/api/weather/";
@@ -189,7 +176,6 @@ namespace TelegramBot
                 {
                     url += tokens[2];
                 }
-
 
                 using (var client = new WebClient())
                 {
@@ -207,6 +193,7 @@ namespace TelegramBot
                 var usage = @"Usage:
 /photo    - send a photo
 /weather  - show wheather
+/weather  city name - show wheather in specific city
 ";
 
                 await BotClient.SendTextMessageAsync(message.Chat.Id, usage,
@@ -214,7 +201,7 @@ namespace TelegramBot
             }
         }
 
-        private static async void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs)
+        private async void BotOnCallbackQueryReceived(object sender, CallbackQueryEventArgs callbackQueryEventArgs)
         {
             await BotClient.AnswerCallbackQueryAsync(callbackQueryEventArgs.CallbackQuery.Id,
                 $"Received {callbackQueryEventArgs.CallbackQuery.Data}");
